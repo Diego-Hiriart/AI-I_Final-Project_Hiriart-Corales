@@ -1,0 +1,26 @@
+<annotation>
+	<folder>training</folder>
+	<filename>90.jpg</filename>
+	<path>C:\Users\Usuario\Documents\GitHub\Final-Project-AI-I_Hiriart-Corales-1\data\training\90.jpg</path>
+	<source>
+		<database>Unknown</database>
+	</source>
+	<size>
+		<width>436</width>
+		<height>269</height>
+		<depth>3</depth>
+	</size>
+	<segmented>0</segmented>
+	<object>
+		<name>pothole</name>
+		<pose>Unspecified</pose>
+		<truncated>0</truncated>
+		<difficult>0</difficult>
+		<bndbox>
+			<xmin>17</xmin>
+			<ymin>68</ymin>
+			<xmax>322</xmax>
+			<ymax>195</ymax>
+		</bndbox>
+	</object>
+</annotation>

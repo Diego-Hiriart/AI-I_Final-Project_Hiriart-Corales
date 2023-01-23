@@ -1,0 +1,15 @@
+*.jpg
+*.jpeg
+*.png
+*.mp4
+*.avi
+*.mpg
+*.mpeg
+*.tar.gz
+hub-model/*
+data/pothole_image_data/pothole/*.jpg
+!data/testing_potholes_images/*
+!data/training_potholes_images/*
+!object_detection/test_images/*.jpg
+
+env/

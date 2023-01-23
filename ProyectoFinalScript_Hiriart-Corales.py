@@ -150,7 +150,7 @@ IMAGES_FOR_TEST = {
 }    
 
 # Load object labels to be used
-def loadObjectLabels(labelsPath='data/mscoco_label_map.pbtxt'):
+def loadObjectLabels(labelsPath='.\data\pothole_label_map.pbtxt'):
     category_index = label_map_util.create_category_index_from_labelmap(labelsPath, use_display_name=True)
     return category_index
 

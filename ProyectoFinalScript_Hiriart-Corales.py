@@ -177,7 +177,7 @@ def downloadTFModel():
     print("\nModel file downloaded!")
     print("Extracting model...")
     tarFile = tarfile.open(modelFileName)
-    extractionPaths = ['.\hub-model', '.\detection-model']
+    extractionPaths = ['.\hub-model', './transfer-learning']
     for extractPath in extractionPaths:
         tarFile.extractall(extractPath) # specify which folder to extract to
     tarFile.close()
@@ -186,20 +186,21 @@ def downloadTFModel():
 
 #Train the model and save it
 # Re-train the model so it only recognizes potholes, then save it. Warnings may be displayed
+#Followed tutorials:
+#-Dataset creation: https://www.youtube.com/watch?v=K_mFnvzyLvc, https://www.youtube.com/watch?v=kq2Gjv_pPe8, https://www.youtube.com/watch?v=JR8CmWyh2E8
+#- Testing: https://www.youtube.com/watch?v=srPndLNMMpk
 def trainModel():
     print("Make sure you have already:")
     print("\t-Ran XMLToCSVsScript.py")
     print("\t-Ran CreateTFRecordsScript.py with '--csv_input=data/training_potholes_images_labels.csv --output_path=data/train.record --image_dir=data/pothole_image_data/pothole/'")
     print("\t-Ran CreateTFRecordsScript.py with '--csv_input=data/testing_potholes_images_labels.csv --output_path=data/test.record --image_dir=data/pothole_image_data/pothole/'")
-    cont = input("Continue (yes/no)")
-    if cont == "no":
-        return
-    else:
-        print("Make sure the config file for the model is downloaded and adjusted (https://github.com/tensorflow/models/tree/master/research/object_detection/configs/tf2), as well as the checkoint file for the model (http://download.tensorflow.org/models/object_detection/classification/tf2/20200710/mobilenet_v2.tar.gz) into the path you specify for config")
-        print("To train the model, run: python model_main_tf2.py --pipeline_config_path=ssd_mobilenet_v2_FPNLite_640x640/ssd_mobilenet_v2_fpnlite_640x640_coco17_tpu-8.config"+
-              "--model_dir=detection-model --alsologtostderr --num_train_steps={num_steps}"+
-              "--sample_1_of_n_eval_examples={n_eval_examples}")
-        print("This script from TF will train and save the model")
+    print("Make sure the config file for the model is downloaded and adjusted (https://github.com/tensorflow/models/tree/master/research/object_detection/configs/tf2), as well as the checkoint file for the model (http://download.tensorflow.org/models/object_detection/classification/tf2/20200710/mobilenet_v2.tar.gz) into the path you specify for config")
+    print("python model_main_tf2.py --pipeline_config_path=ssd_mobilenet_v2_FPNLite_640x640/ssd_mobilenet_v2_fpnlite_640x640_coco17_tpu-8.config "+
+    "--model_dir=detection-model --alsologtostderr --num_train_steps=[num-of-training-steps(epochs)] "+
+    "--sample_1_of_n_eval_examples=[num-of-evals] --log_dir=data/training-log")
+    print("This script from TF will train and save the model weights checkpoints")
+    print("To store the retrained model and reuse it, run: python exporter_main_v2.py --input_type image_tensor --pipeline_config_path ssd_mobilenet_v2_FPNLite_640x640/ssd_mobilenet_v2_fpnlite_640x640_coco17_tpu-8.config "+
+    "--trained_checkpoint_dir transfer-learning/ --output_directory pothole-model")
 
 # Create functions to do the inference (recognize objects) and view results
 # - To recognize objects and view results, code form the Tensorflow tutorial was followed.
@@ -285,7 +286,7 @@ def recognizeAndViewObjectsVideo(model, category_index):
 # # Testing with a sample image
 # Test the model with an existing image from the repo, needs the test_images folder from object_detection
 
-def testWithImage(selected_image='Pothole', modelPath='.\detection-model', labelsPath='.\data\pothole_label_map.pbtxt'):
+def testWithImage(selected_image='Pothole', modelPath='.\pothole-model\saved_model', labelsPath='.\data\pothole_label_map.pbtxt'):
     #selected_image @param ['Beach', 'Dogs', 'Naxos Taverna', 'Beatles', 'Phones', 'Birds', 'Pothole']
     flip_image_horizontally = False
     convert_image_to_grayscale = False
@@ -313,13 +314,13 @@ def testWithImage(selected_image='Pothole', modelPath='.\detection-model', label
 
 
 #Testing with live video feed
-def liveVideoRecognition(modelPath='.\detection-model', labelsPath='.\data\pothole_label_map.pbtxt'):
+def liveVideoRecognition(modelPath='.\pothole-model\saved_model', labelsPath='.\data\pothole_label_map.pbtxt'):
     objectRecogModel = loadModel(modelPath)
     category_index = loadObjectLabels(labelsPath)
     recognizeAndViewObjectsVideo(objectRecogModel, category_index)
 
 #Object detection from video file
-def videoFileRecognition(modelPath='.\detection-model'):
+def videoFileRecognition(modelPath='.\pothole-model\saved_model'):
     pass
 
 class MainMenuSwitch():
@@ -334,7 +335,7 @@ class MainMenuSwitch():
         return downloadTFModel()
 
     def case3(self):
-        return trainModel(modelPath = '.\hub-model')
+        return trainModel()
     
     def case4(self):
         return trainModel()

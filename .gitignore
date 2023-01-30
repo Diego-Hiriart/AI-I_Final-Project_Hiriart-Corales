@@ -7,6 +7,7 @@
 *.mpeg
 *.tar.gz
 hub-model/*
+2023-01-29 AI1 Potholes/*
 data/pothole_image_data/pothole/*.jpg
 !data/testing_potholes_images/*
 !data/training_potholes_images/*

@@ -1,0 +1,26 @@
+<annotation>
+	<folder>testing_potholes_images</folder>
+	<filename>554.jpg</filename>
+	<path>C:\Users\Usuario\Desktop\testing_potholes_images\554.jpg</path>
+	<source>
+		<database>Unknown</database>
+	</source>
+	<size>
+		<width>819</width>
+		<height>974</height>
+		<depth>3</depth>
+	</size>
+	<segmented>0</segmented>
+	<object>
+		<name>pothole</name>
+		<pose>Unspecified</pose>
+		<truncated>1</truncated>
+		<difficult>0</difficult>
+		<bndbox>
+			<xmin>5</xmin>
+			<ymin>468</ymin>
+			<xmax>768</xmax>
+			<ymax>974</ymax>
+		</bndbox>
+	</object>
+</annotation>

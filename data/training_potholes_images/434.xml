@@ -1,0 +1,38 @@
+<annotation>
+	<folder>training_potholes_images</folder>
+	<filename>434.jpg</filename>
+	<path>D:\Code-UDLA\AI I\Proyecto Final\data\training_potholes_images\434.jpg</path>
+	<source>
+		<database>Unknown</database>
+	</source>
+	<size>
+		<width>800</width>
+		<height>597</height>
+		<depth>3</depth>
+	</size>
+	<segmented>0</segmented>
+	<object>
+		<name>pothole</name>
+		<pose>Unspecified</pose>
+		<truncated>0</truncated>
+		<difficult>0</difficult>
+		<bndbox>
+			<xmin>293</xmin>
+			<ymin>181</ymin>
+			<xmax>724</xmax>
+			<ymax>546</ymax>
+		</bndbox>
+	</object>
+	<object>
+		<name>pothole</name>
+		<pose>Unspecified</pose>
+		<truncated>0</truncated>
+		<difficult>0</difficult>
+		<bndbox>
+			<xmin>49</xmin>
+			<ymin>85</ymin>
+			<xmax>333</xmax>
+			<ymax>273</ymax>
+		</bndbox>
+	</object>
+</annotation>

@@ -21,6 +21,7 @@ from six.moves.urllib.request import urlopen
 import wget
 import tarfile
 import zipfile
+import csv
 
 import tensorflow as tf#needs protobuf 3.20 or lower and 3.9.2 or higher for Tensorflow's tutorial https://www.tensorflow.org/hub/tutorials/tf2_object_detection
 
@@ -177,7 +178,7 @@ def downloadTFModel():
     print("\nModel file downloaded!")
     print("Extracting model...")
     tarFile = tarfile.open(modelFileName)
-    extractionPaths = ['.\hub-model', './transfer-learning']
+    extractionPaths = ['./hub-model', './transfer-learning']
     for extractPath in extractionPaths:
         tarFile.extractall(extractPath) # specify which folder to extract to
     tarFile.close()
@@ -194,13 +195,18 @@ def trainModel():
     print("\t-Ran XMLToCSVsScript.py")
     print("\t-Ran CreateTFRecordsScript.py with '--csv_input=data/training_potholes_images_labels.csv --output_path=data/train.record --image_dir=data/pothole_image_data/pothole/'")
     print("\t-Ran CreateTFRecordsScript.py with '--csv_input=data/testing_potholes_images_labels.csv --output_path=data/test.record --image_dir=data/pothole_image_data/pothole/'")
-    print("Make sure the config file for the model is downloaded and adjusted (https://github.com/tensorflow/models/tree/master/research/object_detection/configs/tf2), as well as the checkoint file for the model (http://download.tensorflow.org/models/object_detection/classification/tf2/20200710/mobilenet_v2.tar.gz) into the path you specify for config")
-    print("python model_main_tf2.py --pipeline_config_path=ssd_mobilenet_v2_FPNLite_640x640/ssd_mobilenet_v2_fpnlite_640x640_coco17_tpu-8.config "+
-    "--model_dir=detection-model --alsologtostderr --num_train_steps=[num-of-training-steps(epochs)] "+
-    "--sample_1_of_n_eval_examples=[num-of-evals] --log_dir=data/training-log")
-    print("This script from TF will train and save the model weights checkpoints")
-    print("To store the retrained model and reuse it, run: python exporter_main_v2.py --input_type image_tensor --pipeline_config_path ssd_mobilenet_v2_FPNLite_640x640/ssd_mobilenet_v2_fpnlite_640x640_coco17_tpu-8.config "+
-    "--trained_checkpoint_dir transfer-learning/ --output_directory pothole-model")
+    print("\nMake sure the config file for the model is downloaded and adjusted (https://github.com/tensorflow/models/tree/master/research/object_detection/configs/tf2), as well as the checkoint file for the model (http://download.tensorflow.org/models/object_detection/classification/tf2/20200710/mobilenet_v2.tar.gz) into the path you specify for config")
+    print("\nTo train, run: python model_main_tf2.py --pipeline_config_path=ssd_mobilenet_v2_FPNLite_640x640/ssd_mobilenet_v2_fpnlite_640x640_coco17_tpu-8.config "+
+    "--model_dir=./transfer-learning --alsologtostderr --num_train_steps=[num-of-training-steps(epochs)] "+
+    "--sample_1_of_n_eval_examples=[num-of-evals] --log_dir=./transfer-learning/training-log --checkpoint_every_n=[num-of-steps-to-create-checkpoint]")
+    print("This last script from TF will train and save the model weights checkpoints")
+    print("\nTo store the retrained model and be able to reuse it, run: python exporter_main_v2.py --input_type image_tensor --pipeline_config_path ssd_mobilenet_v2_FPNLite_640x640/ssd_mobilenet_v2_fpnlite_640x640_coco17_tpu-8.config "+
+    "--trained_checkpoint_dir ./transfer-learning --output_directory ./pothole-model")
+    print("\nIf more training is needed, run the training script again but do the following to continue the training:")
+    print("\t-Make sure you have saved the trained model"+
+    "\n\t-Change the .config file of the newly saved model so that 'fine_tune_checkpoint' points to the new saved checkpoint and 'fine_tune_checkpoint_type' is 'detection'"+
+    "\n\t-Run the training script using the new .config file, num_train_steps should be the previous amount of steps+the additional num of steps"+
+    "\n\t-Once training is done, save the model with the latest .config file\n")
 
 # Create functions to do the inference (recognize objects) and view results
 # - To recognize objects and view results, code form the Tensorflow tutorial was followed.
@@ -320,8 +326,107 @@ def liveVideoRecognition(modelPath='.\pothole-model\saved_model', labelsPath='.\
     recognizeAndViewObjectsVideo(objectRecogModel, category_index)
 
 #Object detection from video file
-def videoFileRecognition(modelPath='.\pothole-model\saved_model'):
-    pass
+def videoFileRecognition(modelPath='.\pothole-model\saved_model', labelsPath='.\data\pothole_label_map.pbtxt', filePath="pothole-results.csv", videosPath="./2023-01-29 AI1 Potholes", skipFrames=12, detectionThreshold=0.5):
+    objectRecogModel = loadModel(modelPath)
+    category_index = loadObjectLabels(labelsPath)
+    #Prepare results file
+    if not os.path.exists(filePath):
+        resultsFile = open(filePath, "a")
+        resultsFile.write("video,vidFrame,totalFramesOnDetection,class,score,ymin,xmin,ymax,xmax\n")
+        resultsFile.close()
+    totalVideoFrames = 0
+    for vidFile in os.listdir(videosPath):
+        if pathlib.Path(vidFile).suffix.lower() == ".mp4":
+            vidCapture = cv2.VideoCapture(os.path.join(videosPath, vidFile))#Read file with cv2
+            vidFrameCount = vidCapture.get(cv2.CAP_PROP_FRAME_COUNT)
+            currentFrame = 0
+            while vidCapture.isOpened():
+                success, frame = vidCapture.read()#Start reading frames
+                #Check if frame was successfully, sometimes cv2 reads empty frames but it doesnt mean the file ended
+                if not success:
+                    #Skip reading if frame empty but file not eneded
+                    if vidCapture.get(cv2.CAP_PROP_POS_FRAMES) >= vidFrameCount:
+                        break
+                    else:
+                        continue
+
+                #Expand dimensions since the model expects images to have shape: [1, None, None, 3]
+                frame_expanded = np.expand_dims(frame, axis=0)
+
+                #Run detection
+                results = objectRecogModel(frame_expanded)
+                # different object detection models have additional results
+                # all of them are explained in the documentation
+                result = {key:value.numpy() for key,value in results.items()}
+                
+                #Save results to .csv file
+                for i, box in enumerate(np.squeeze(result['detection_boxes'][0])):
+                    if np.squeeze(result['detection_scores'][0][i]) > detectionThreshold:
+                        resultsFile = open(filePath, "a")
+                        detectedClass = category_index[result['detection_classes'][0][i]]["name"]
+                        detectionFrameVid = str(vidCapture.get(cv2.CAP_PROP_POS_FRAMES))
+                        totalFramesOnDetection = str(totalVideoFrames + vidCapture.get(cv2.CAP_PROP_POS_FRAMES))
+                        detectionScore = str(np.squeeze(result['detection_scores'][0][i]))
+                        ymin = str(box[0])
+                        xmin = str(box[1])
+                        ymax = str(box[2])
+                        xmax = str(box[3])
+                        resultsLine = ','.join([vidFile,detectionFrameVid,str(totalFramesOnDetection),detectedClass,detectionScore,ymin,xmin,ymax,xmax])+"\n"
+                        print(resultsLine)
+                        resultsFile.write(resultsLine)
+                        resultsFile.close()
+                
+
+                #Visualization
+                label_id_offset = 0
+                # Use keypoints if available in detections
+                keypoints, keypoint_scores = None, None
+                viz_utils.visualize_boxes_and_labels_on_image_array(
+                frame_expanded[0],
+                result['detection_boxes'][0],
+                (result['detection_classes'][0] + label_id_offset).astype(int),
+                result['detection_scores'][0],
+                category_index,
+                use_normalized_coordinates=True,
+                max_boxes_to_draw=200,
+                min_score_thresh=detectionThreshold,
+                agnostic_mode=False,
+                keypoints=keypoints,
+                keypoint_scores=keypoint_scores)
+
+
+                cv2.imshow('pothole detection', cv2.resize(frame, (800,600)))
+                if cv2.waitKey(1) & 0xFF == ord('q'):
+                    vidCapture.release()
+                    cv2.destroyAllWindows()
+                    break
+
+                #Skip frames
+                currentFrame += skipFrames
+                vidCapture.set(cv2.CAP_PROP_POS_FRAMES, currentFrame)
+            totalVideoFrames += vidFrameCount
+            vidCapture.release()
+            cv2.destroyAllWindows()
+            continueDetection = input("Video analized. Continue detection on files? [y/n]: ")
+            if continueDetection.lower() == "n":
+                break
+
+def resultsGraph(filePath="pothole-results.csv", threshold=0.7):
+    with open(filePath, 'r') as csvFile:
+        csvReader = csv.reader(csvFile, delimiter=',')
+        potholeFrames = []
+        detectionScores = []
+        next(csvReader, None)#Skip header (first row)
+        for row in csvReader:
+            if float(row[4]) > threshold:
+                potholeFrames.append(float(row[2]))
+                detectionScores.append(float(row[4]))
+        potholeSeconds = [i/24 for i in potholeFrames]
+        plt.bar(potholeSeconds, detectionScores, width=5)
+        plt.xlabel("Second the pothole was detected")
+        plt.ylabel("Detection score")
+        plt.title("Seconds (of total) on which pothole was detected and scores, with a {0} threshold".format(threshold))
+        plt.show()
 
 class MainMenuSwitch():
     def option(self, opc):
@@ -353,10 +458,13 @@ class MainMenuSwitch():
         return liveVideoRecognition()
     
     def case9(self):
-        return videoFileRecognition(modelPath='.\hub-model', labelsPath='.\data\mscoco_label_map.pbtxt')
+        return videoFileRecognition(modelPath='.\hub-model', labelsPath='.\data\mscoco_label_map.pbtxt', filePath="base-model-results.csv")
     
     def case10(self):
-        return videoFileRecognition()    
+        return videoFileRecognition()
+    
+    def case11(self):
+        return resultsGraph()
 
 def main():
     matplotlib.use('TkAgg')#So that matplotlib can render graphics
@@ -366,9 +474,10 @@ def main():
         print("\nMenu\n1.Load potholes dataset and show images\t2.Download default model from TensorFlow\n3.Train TF model"+
               "\t4.Train local (potholes) model\n5.Test TF model with image\t6.Test potholes model with image"+
               "\n7.Test with live video using default TF\t8.Live video with poholes model"+
-              "\n9.Test TF model with video file\t10.Test potholes model with video file\n11.Exit")
+              "\n9.Test TF model with video file\t10.Test potholes model with video file"+
+              "\n11.View results graph\t12.Exit")
         opc = int(input("Select an option: "))
-        if opc == 11:
+        if opc == 12:
             break
         menuSwitch.option(opc)
     print("Program ended")
